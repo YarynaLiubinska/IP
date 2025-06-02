@@ -5,7 +5,6 @@
     <title>Віртуальна панель приладів</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-
     <style>
         body {
             font-family: sans-serif;
@@ -60,22 +59,10 @@
 <div id="warnings" class="warning">Завантаження...</div>
 
 <div class="gauge-container">
-    <div class="gauge-block">
-        <h2>Швидкість</h2>
-        <canvas id="speedGauge"></canvas>
-    </div>
-    <div class="gauge-block">
-        <h2>Оберти</h2>
-        <canvas id="rpmGauge"></canvas>
-    </div>
-    <div class="gauge-block">
-        <h2>Температура</h2>
-        <canvas id="temperatureGauge"></canvas>
-    </div>
-    <div class="gauge-block">
-        <h2>Паливо</h2>
-        <canvas id="fuelGauge"></canvas>
-    </div>
+    <div class="gauge-block"><h2>Швидкість</h2><canvas id="speedGauge"></canvas></div>
+    <div class="gauge-block"><h2>Оберти</h2><canvas id="rpmGauge"></canvas></div>
+    <div class="gauge-block"><h2>Температура</h2><canvas id="temperatureGauge"></canvas></div>
+    <div class="gauge-block"><h2>Паливо</h2><canvas id="fuelGauge"></canvas></div>
 </div>
 
 <script>
@@ -98,8 +85,7 @@
                     legend: {display: false},
                     datalabels: {
                         display: true,
-                        formatter: (value, context) =>
-                            context.dataIndex === 0 ? value : '',
+                        formatter: (value, context) => context.dataIndex === 0 ? value : '',
                         color: '#fff',
                         font: {size: 18, weight: 'bold'}
                     }
@@ -120,10 +106,10 @@
     }
 
     function getWarningColor(level) {
-        switch (level.toLowerCase()) {
-            case 'alert': return '#ff4d4d';
-            case 'warning': return '#f1c40f';
-            default: return '#888';
+        switch (level) {
+            case 'alert': return '#ff4d4d';   // червоний
+            case 'warning': return '#f1c40f'; // жовтий
+            default: return '#888';          // сірий
         }
     }
 
@@ -153,10 +139,10 @@
             const message = match[1];
             const sensor = match[2];
 
-            const msgLower = message.toLowerCase();
+            const lower = message.toLowerCase();
             let level = 'info';
-            if (msgLower.includes('alert') || msgLower.includes('critical')) level = 'alert';
-            else if (msgLower.includes('warning') || msgLower.includes('high') || msgLower.includes('low')) level = 'warning';
+            if (lower.includes('critical') || lower.includes('alert')) level = 'alert';
+            else if (lower.includes('warning') || lower.includes('high') || lower.includes('low')) level = 'warning';
 
             if (level === 'info') return '';
 
@@ -204,6 +190,5 @@
         });
     });
 </script>
-
 </body>
 </html>
