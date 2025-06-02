@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Віртуальна панель приладів</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #121212;
+            color: white;
+            text-align: center;
+            margin: 0;
+        }
+
+        .gauge-container {
+            position: relative;
+            height: 100vh;
+            overflow: hidden;
+            margin-top: 240px;
+        }
+
+        .gauge-block {
+            background-color: #1e1e1e;
+            border-radius: 16px;
+            padding: 20px;
+            width: 260px;
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 0 15px #00ff8844;
+        }
+
+        canvas {
+            width: 200px !important;
+            height: 200px !important;
+        }
+
+        .warning {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 18px;
+            background: #1b1b1b;
+            box-shadow: 0 0 10px #333;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+<h1>Віртуальна панель приладів</h1>
+
+<div id="warnings" class="warning">Завантаження...</div>
+
+<div class="gauge-container">
+    <div class="gauge-block">
+        <h2>Швидкість</h2>
+        <canvas id="speedGauge"></canvas>
+    </div>
+    <div class="gauge-block">
+        <h2>Оберти</h2>
+        <canvas id="rpmGauge"></canvas>
+    </div>
+    <div class="gauge-block">
+        <h2>Температура</h2>
+        <canvas id="temperatureGauge"></canvas>
+    </div>
+    <div class="gauge-block">
+        <h2>Паливо</h2>
+        <canvas id="fuelGauge"></canvas>
+    </div>
+</div>
+
+<script>
+    function createGauge(ctx, max) {
+        return new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [0, max],
+                    backgroundColor: ['#00ff88', '#2e2e2e'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                rotation: -90,
+                circumference: 180,
+                cutout: '70%',
+                plugins: {
+                    tooltip: {enabled: false},
+                    legend: {display: false},
+                    datalabels: {
+                        display: true,
+                        formatter: (value, context) =>
+                            context.dataIndex === 0 ? value : '',
+                        color: '#fff',
+                        font: {size: 18, weight: 'bold'}
+                    }
+                }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    const speedChart = createGauge(document.getElementById('speedGauge'), 240);
+    const rpmChart = createGauge(document.getElementById('rpmGauge'), 8000);
+    const tempChart = createGauge(document.getElementById('temperatureGauge'), 150);
+    const fuelChart = createGauge(document.getElementById('fuelGauge'), 100);
+
+    function updateChart(chart, value, max) {
+        chart.data.datasets[0].data = [value, max - value];
+        chart.update();
+    }
+
+    function getWarningColor(level) {
+        switch (level.toLowerCase()) {
+            case 'alert': return '#ff4d4d';
+            case 'warning': return '#f1c40f';
+            default: return '#888';
+        }
+    }
+
+    function parseValue(text) {
+        const match = text.match(/(\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : 0;
+    }
+
+    async function updateDashboard() {
+        const response = await fetch('/api/dashboard/test');
+        const lines = (await response.text()).trim().split('\n');
+
+        const speed = parseValue(lines[0]);
+        const rpm = parseValue(lines[3]);
+        const fuel = parseValue(lines[6]);
+        const temp = parseValue(lines[9]);
+
+        updateChart(speedChart, speed, 240);
+        updateChart(rpmChart, rpm, 8000);
+        updateChart(fuelChart, fuel, 100);
+        updateChart(tempChart, temp, 150);
+
+        const rawWarnings = [lines[1], lines[4], lines[7], lines[10]];
+        const warningsHtml = rawWarnings.map(text => {
+            const match = text.match(/^(.+?) \((.+?)\)$/);
+            if (!match) return '';
+            const message = match[1];
+            const sensor = match[2];
+
+            const msgLower = message.toLowerCase();
+            let level = 'info';
+            if (msgLower.includes('alert') || msgLower.includes('critical')) level = 'alert';
+            else if (msgLower.includes('warning') || msgLower.includes('high') || msgLower.includes('low')) level = 'warning';
+
+            if (level === 'info') return '';
+
+            return `<div style="background-color:${getWarningColor(level)};color:black;margin:8px;padding:10px;border-radius:8px;">
+                ${message} <small>(${sensor})</small>
+            </div>`;
+        }).filter(Boolean).join('');
+
+        document.getElementById('warnings').innerHTML =
+            warningsHtml || `<span style="color:#4caf50">✔ Усі показники в нормі</span>`;
+    }
+
+    updateDashboard();
+    setInterval(updateDashboard, 5000);
+</script>
+
+<script>
+    function makeDraggable(element) {
+        let offsetX = 0, offsetY = 0, isDragging = false;
+
+        element.addEventListener('mousedown', e => {
+            isDragging = true;
+            offsetX = e.clientX - element.offsetLeft;
+            offsetY = e.clientY - element.offsetTop;
+            element.style.zIndex = 1000;
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (isDragging) {
+                element.style.left = (e.clientX - offsetX) + 'px';
+                element.style.top = (e.clientY - offsetY) + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.gauge-block').forEach((block, i) => {
+            block.style.left = `${80 + i * 300}px`;
+            block.style.top = `0px`;
+            makeDraggable(block);
+        });
+    });
+</script>
+
+</body>
+</html>
