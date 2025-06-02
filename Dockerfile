@@ -13,7 +13,8 @@ FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
 
 # Скопіюй JAR-файл з попереднього кроку
-COPY --from=build /app/target/instrument-panel-web-ful.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
+
 
 # Запуск
 EXPOSE 8080
